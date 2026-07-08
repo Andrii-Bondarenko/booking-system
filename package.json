@@ -1,0 +1,28 @@
+{
+  "name": "booking-system",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/Andrii-Bondarenko/booking-system#readme",
+  "bugs": {
+    "url": "https://github.com/Andrii-Bondarenko/booking-system/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Andrii-Bondarenko/booking-system.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "aws-cdk": "^2.1129.0",
+    "jest": "^30.4.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^7.0.2"
+  }
+}
