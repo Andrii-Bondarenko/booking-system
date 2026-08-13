@@ -24,3 +24,5 @@ cdk.out
 
 # OS / editor
 .DS_Store
+.codemie
+.claude
