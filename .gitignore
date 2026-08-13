@@ -1,8 +1,26 @@
-!jest.config.js
-*.d.ts
-
-# CDK asset staging directory
-.cdk.staging
-cdk.out
-
+# Dependencies
 node_modules
+
+# Compiled TypeScript output
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+
+# Keep JS config files (not compiled output)
+!.prettierrc.js
+!jest.config.js
+!.eslintrc.js
+
+# CDK
+cdk.out
+.cdk.staging
+
+# Logs / env
+*.log
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
