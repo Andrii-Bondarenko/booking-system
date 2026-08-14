@@ -49,8 +49,6 @@ export class ComputeConstruct extends Construct {
         STUDENTS_TABLE: data.studentsTable.tableName,
         TIME_SLOTS_TABLE: data.timeSlotsTable.tableName,
         BOOKINGS_TABLE: data.bookingsTable.tableName,
-        BOOKINGS_BY_STUDENT_INDEX: 'byStudent',
-        BOOKINGS_BY_MENTOR_INDEX: 'byMentor',
         NOTIFICATIONS_QUEUE_URL: messaging.notificationsQueue.queueUrl,
         EXPORTS_QUEUE_URL: messaging.exportsQueue.queueUrl,
         IMPORTS_BUCKET: storage.importsBucket.bucketName,
@@ -60,7 +58,7 @@ export class ComputeConstruct extends Construct {
     // Least-privilege for the API: read mentors/students; read+write
     // slots/bookings; send (not consume) to queues; put the import CSV.
     data.mentorsTable.grantReadData(bookingApiFn);
-    data.studentsTable.grantReadData(bookingApiFn);
+    data.studentsTable.grantReadWriteData(bookingApiFn);
     data.timeSlotsTable.grantReadWriteData(bookingApiFn);
     data.bookingsTable.grantReadWriteData(bookingApiFn);
     messaging.notificationsQueue.grantSendMessages(bookingApiFn);
@@ -140,6 +138,9 @@ export class ComputeConstruct extends Construct {
     });
     const lambda = new LambdaIntegration(fn);
 
+    const students = api.root.addResource('students');
+    students.addMethod('POST', lambda); // POST /students
+
     const mentors = api.root.addResource('mentors');
     mentors.addMethod('GET', lambda); // GET /mentors
 
@@ -149,14 +150,9 @@ export class ComputeConstruct extends Construct {
     timeslots.addMethod('GET', lambda);
     timeslots.addMethod('POST', lambda);
 
-    const slot = timeslots.addResource('{slotId}');
-    slot.addMethod('PUT', lambda);
-    slot.addMethod('DELETE', lambda);
-
     mentor.addResource('bookings').addMethod('GET', lambda);
 
     const bookings = api.root.addResource('bookings');
-    bookings.addMethod('GET', lambda);
     bookings.addMethod('POST', lambda);
     bookings.addResource('{bookingId}').addMethod('DELETE', lambda);
 

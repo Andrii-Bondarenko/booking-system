@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { accepted, getHeader, rawBody } from '../../lib/http';
-import { adminService } from '../../services/admin.service';
+import { accepted, getHeader, rawBody } from '../lib/http';
+import { adminService } from './admin.service';
 
 /**
  * POST /import/mentors

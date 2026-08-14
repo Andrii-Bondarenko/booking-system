@@ -39,6 +39,7 @@ export const accepted = (body: unknown) => json(202, body);
 /** Return the request body as a decoded string (handles base64). */
 export function rawBody(event: APIGatewayProxyEvent): string {
   if (!event.body) return '';
+
   return event.isBase64Encoded
     ? Buffer.from(event.body, 'base64').toString('utf8')
     : event.body;

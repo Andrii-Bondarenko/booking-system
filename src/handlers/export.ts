@@ -1,9 +1,9 @@
 import type { SQSBatchItemFailure, SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import { putObject } from '../lib/storage';
 import { publishNotification } from '../lib/messaging';
-import { bookingRepository } from '../repositories/booking.repository';
+import { bookingRepository } from '../booking/booking.repository';
 import { config } from '../lib/config';
-import type { Booking } from '../lib/models';
+import type { Booking } from '../booking/booking.model';
 
 /**
  * Bookings Export Lambda — triggered by jobs on the Exports queue. For

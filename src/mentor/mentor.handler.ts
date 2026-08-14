@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { ok } from '../../lib/http';
-import { mentorService } from '../../services/mentor.service';
+import { ok } from '../lib/http';
+import { mentorService } from './mentor.service';
 
 /**
  * GET /mentors  (optionally ?skill=aws&minExperience=3)

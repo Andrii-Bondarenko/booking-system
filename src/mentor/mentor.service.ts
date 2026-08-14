@@ -1,5 +1,5 @@
-import { mentorRepository } from '../repositories/mentor.repository';
-import type { Mentor } from '../lib/models';
+import { mentorRepository } from './mentor.repository';
+import type { Mentor } from './mentor.model';
 
 /** Optional refinements for the mentor listing. */
 export interface MentorFilters {

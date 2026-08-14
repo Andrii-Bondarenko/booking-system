@@ -2,16 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { badRequest, conflict, forbidden, notFound } from '../lib/http';
 import { nowIso, overlaps } from '../lib/time';
 import { publishNotification } from '../lib/messaging';
-import { mentorRepository } from '../repositories/mentor.repository';
-import { timeslotRepository } from '../repositories/timeslot.repository';
-import { bookingRepository } from '../repositories/booking.repository';
-import type { Booking } from '../lib/models';
+import { mentorRepository } from '../mentor/mentor.repository';
+import { timeslotRepository } from '../timeslot/timeslot.repository';
+import { bookingRepository } from './booking.repository';
+import { studentRepository } from '../student/student.repository';
+import type { Booking } from './booking.model';
 
 export interface CreateBookingInput {
   mentorId: string;
   slotId: string;
   studentId: string;
-  studentEmail: string;
 }
 
 /** Which slice of a person's bookings to return. */
@@ -28,9 +28,9 @@ export const bookingService = {
    *      booking.created event.
    */
   async create(input: CreateBookingInput): Promise<Booking> {
-    const { mentorId, slotId, studentId, studentEmail } = input;
-    if (!mentorId || !slotId || !studentId || !studentEmail) {
-      throw badRequest('mentorId, slotId, studentId and studentEmail are required');
+    const { mentorId, slotId, studentId } = input;
+    if (!mentorId || !slotId || !studentId) {
+      throw badRequest('mentorId, slotId and studentId are required');
     }
 
     const slot = await timeslotRepository.get(mentorId, slotId);
@@ -39,6 +39,9 @@ export const bookingService = {
 
     const mentor = await mentorRepository.get(mentorId);
     if (!mentor) throw notFound(`Mentor ${mentorId} not found`);
+
+    const student = await studentRepository.get(studentId);
+    if (!student) throw notFound(`Student ${studentId} not found`);
 
     // No overlapping booking for the same student.
     const studentBookings = await bookingRepository.listForStudent(studentId);
@@ -62,7 +65,7 @@ export const bookingService = {
     const booking: Booking = {
       bookingId: randomUUID(),
       studentId,
-      studentEmail,
+      studentEmail: student.email,
       mentorId,
       mentorEmail: mentor.email,
       slotId,
@@ -107,10 +110,6 @@ export const bookingService = {
     });
   },
 
-  async listForStudent(studentId: string, when: BookingWhen): Promise<Booking[]> {
-    return filterWhen(await bookingRepository.listForStudent(studentId), when);
-  },
-
   async listForMentor(mentorId: string, when: BookingWhen): Promise<Booking[]> {
     return filterWhen(await bookingRepository.listForMentor(mentorId), when);
   },
@@ -120,7 +119,9 @@ export const bookingService = {
 function filterWhen(bookings: Booking[], when: BookingWhen): Booking[] {
   const now = nowIso();
   let result = bookings;
+
   if (when === 'upcoming') result = result.filter((b) => b.startTime > now);
   else if (when === 'past') result = result.filter((b) => b.startTime <= now);
+
   return result.sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
 }

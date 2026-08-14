@@ -1,10 +1,10 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { badRequest, created, ok, parseJson, requireStudentId } from '../../lib/http';
+import { badRequest, created, ok, parseJson, requireStudentId } from '../lib/http';
 import {
   bookingService,
   type BookingWhen,
   type CreateBookingInput,
-} from '../../services/booking.service';
+} from './booking.service';
 
 /** Read the optional ?when=upcoming|past filter (defaults to all). */
 function whenOf(event: APIGatewayProxyEvent): BookingWhen {
@@ -12,14 +12,13 @@ function whenOf(event: APIGatewayProxyEvent): BookingWhen {
   return when === 'upcoming' || when === 'past' ? when : 'all';
 }
 
-/** POST /bookings — body: { mentorId, slotId, studentId, studentEmail } */
+/** POST /bookings — body: { mentorId, slotId, studentId } */
 export async function createBooking(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = parseJson<Partial<CreateBookingInput>>(event);
   const booking = await bookingService.create({
     mentorId: body.mentorId ?? '',
     slotId: body.slotId ?? '',
     studentId: body.studentId ?? '',
-    studentEmail: body.studentEmail ?? '',
   });
   return created({ booking });
 }
@@ -31,14 +30,6 @@ export async function cancelBooking(event: APIGatewayProxyEvent): Promise<APIGat
 
   await bookingService.cancel(bookingId, requireStudentId(event));
   return ok({ cancelled: true, bookingId });
-}
-
-/** GET /bookings — the calling student's own bookings. */
-export async function listStudentBookings(
-  event: APIGatewayProxyEvent,
-): Promise<APIGatewayProxyResult> {
-  const bookings = await bookingService.listForStudent(requireStudentId(event), whenOf(event));
-  return ok({ bookings });
 }
 
 /** GET /mentors/{mentorId}/bookings — a mentor's booked sessions. */

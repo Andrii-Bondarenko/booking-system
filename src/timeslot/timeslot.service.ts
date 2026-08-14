@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { badRequest, conflict, notFound } from '../lib/http';
 import { isFutureIso, isValidIso, overlaps } from '../lib/time';
-import { mentorRepository } from '../repositories/mentor.repository';
-import { timeslotRepository } from '../repositories/timeslot.repository';
-import { bookingRepository } from '../repositories/booking.repository';
-import type { TimeSlot } from '../lib/models';
+import { mentorRepository } from '../mentor/mentor.repository';
+import { timeslotRepository } from './timeslot.repository';
+import type { TimeSlot } from './timeslot.model';
 
 /** A requested slot's time window (before it becomes a stored TimeSlot). */
 export interface SlotInput {
@@ -26,9 +25,8 @@ function validateSlotTimes(slot: SlotInput): void {
 }
 
 /**
- * Time-slot business logic: availability listing, creation with overlap
- * protection, rescheduling, and deletion — with the rules the spec asks
- * for (future-only, no overlaps, can't touch booked slots).
+ * Time-slot business logic: availability listing and creation with overlap
+ * protection — with the rules the spec asks for (future-only, no overlaps).
  */
 export const timeslotService = {
   async listAvailable(mentorId: string): Promise<TimeSlot[]> {
@@ -78,42 +76,5 @@ export const timeslotService = {
     await Promise.all(newSlots.map((slot) => timeslotRepository.put(slot)));
 
     return newSlots;
-  },
-
-  async update(mentorId: string, slotId: string, input: SlotInput): Promise<TimeSlot> {
-    const slot = await timeslotRepository.get(mentorId, slotId);
-    if (!slot) throw notFound(`Time slot ${slotId} not found for mentor ${mentorId}`);
-    if (slot.status === 'booked') throw conflict('Cannot reschedule a booked time slot');
-
-    validateSlotTimes(input);
-
-    const others = (await timeslotRepository.listForMentor(mentorId)).filter(
-      (s) => s.slotId !== slotId,
-    );
-    for (const other of others) {
-      if (overlaps(input.startTime, input.endTime, other.startTime, other.endTime)) {
-        throw conflict('Updated time overlaps another of the mentor’s slots');
-      }
-    }
-
-    const bookings = await bookingRepository.listForMentor(mentorId);
-    for (const booking of bookings) {
-      if (overlaps(input.startTime, input.endTime, booking.startTime, booking.endTime)) {
-        throw conflict('Updated time overlaps an existing booking');
-      }
-    }
-
-    const updated: TimeSlot = { ...slot, startTime: input.startTime, endTime: input.endTime };
-    await timeslotRepository.put(updated);
-
-    return updated;
-  },
-
-  async remove(mentorId: string, slotId: string): Promise<void> {
-    const slot = await timeslotRepository.get(mentorId, slotId);
-    if (!slot) throw notFound(`Time slot ${slotId} not found for mentor ${mentorId}`);
-    if (slot.status === 'booked') throw conflict('Cannot delete a booked time slot');
-
-    await timeslotRepository.delete(mentorId, slotId);
   },
 };

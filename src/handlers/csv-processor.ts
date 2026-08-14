@@ -2,8 +2,8 @@ import type { S3Event } from 'aws-lambda';
 import { randomUUID } from 'node:crypto';
 import { getObject } from '../lib/storage';
 import { publishNotification } from '../lib/messaging';
-import { mentorRepository } from '../repositories/mentor.repository';
-import type { Mentor } from '../lib/models';
+import { mentorRepository } from '../mentor/mentor.repository';
+import type { Mentor } from '../mentor/mentor.model';
 
 /**
  * CSV Processor Lambda — triggered when a mentor CSV is uploaded to the
@@ -15,7 +15,7 @@ import type { Mentor } from '../lib/models';
  *   - skills is a ";"-separated list, e.g. "aws;typescript"
  *   - experience is a whole number of years
  */
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@example.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL!;
 
 export async function handler(event: S3Event): Promise<void> {
   for (const record of event.Records) {
