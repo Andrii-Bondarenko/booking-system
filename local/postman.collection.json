@@ -1,0 +1,422 @@
+{
+  "info": {
+    "_postman_id": "4a1b2c3d-e5f6-7890-abcd-ef1234567890",
+    "name": "MentorBooking — Local",
+    "description": "Tests against the local dev server (http://localhost:3000).\n\nStartup:\n  npm run local:up\n  npm run local:setup\n  npm run local:dev\n\nHappy-path order:\n  1. Students  → Create Student\n  2. Mentors   → List Mentors  (seeds mentorId; requires a mentor in DB — see note below)\n  3. Time Slots → Create Time Slot\n  4. Bookings  → Create Booking\n  5. Bookings  → Cancel Booking\n\nSeeding a mentor locally:\n  Mentors are normally imported via CSV (POST /import/mentors), which needs S3.\n  For local testing, insert one directly into DynamoDB Local:\n\n  aws dynamodb put-item \\\n    --endpoint-url http://localhost:8000 \\\n    --table-name mentors \\\n    --region us-east-1 \\\n    --item '{\n      \"mentorId\": {\"S\": \"mentor-1\"},\n      \"name\":     {\"S\": \"Bob Jones\"},\n      \"email\":    {\"S\": \"bob@example.com\"},\n      \"skills\":   {\"L\": [{\"S\": \"aws\"}, {\"S\": \"typescript\"}]},\n      \"experience\":{\"N\": \"5\"},\n      \"active\":   {\"BOOL\": true}\n    }'\n\n  Or open the DynamoDB Local shell at http://localhost:8000/shell",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "studentId", "value": "student-1", "type": "string" },
+    { "key": "mentorId", "value": "mentor-1", "type": "string" },
+    { "key": "slotId", "value": "", "type": "string" },
+    { "key": "slotStart", "value": "", "type": "string" },
+    { "key": "slotEnd", "value": "", "type": "string" },
+    { "key": "bookingId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Students",
+      "item": [
+        {
+          "_postman_id": "11000001-0000-0000-0000-000000000001",
+          "name": "Create Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('student in response', () => pm.expect(res.student).to.be.an('object'));",
+                  "if (res.student) {",
+                  "    pm.collectionVariables.set('studentId', res.student.studentId);",
+                  "    console.log('studentId saved:', res.student.studentId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"student-1\",\n  \"name\": \"Alice Smith\",\n  \"email\": \"alice@example.com\",\n  \"phone\": \"+1-555-0100\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["students"]
+            },
+            "description": "Register a new student. The test script saves studentId to the collection variable."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Mentors",
+      "description": "Mentors must exist in the DB before these requests work.\nSee collection description for how to seed one via DynamoDB Local.",
+      "item": [
+        {
+          "_postman_id": "11000002-0000-0000-0000-000000000001",
+          "name": "List Mentors",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('mentors array', () => pm.expect(res.mentors).to.be.an('array'));",
+                  "if (res.mentors && res.mentors.length > 0) {",
+                  "    pm.collectionVariables.set('mentorId', res.mentors[0].mentorId);",
+                  "    console.log('mentorId saved:', res.mentors[0].mentorId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mentors",
+              "host": ["{{baseUrl}}"],
+              "path": ["mentors"]
+            },
+            "description": "List all active mentors. Saves the first mentorId to the collection variable."
+          },
+          "response": []
+        },
+        {
+          "_postman_id": "11000002-0000-0000-0000-000000000002",
+          "name": "List Mentors — filtered",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mentors?skill=aws&minExperience=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["mentors"],
+              "query": [
+                { "key": "skill", "value": "aws", "description": "Filter by skill tag" },
+                { "key": "minExperience", "value": "2", "description": "Minimum years of experience" }
+              ]
+            },
+            "description": "List mentors filtered by skill and/or minimum experience."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Time Slots",
+      "item": [
+        {
+          "_postman_id": "11000003-0000-0000-0000-000000000001",
+          "name": "Create Time Slot",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Set a slot for tomorrow 10:00 – 11:00 (local time, ISO string)",
+                  "const d = new Date();",
+                  "d.setDate(d.getDate() + 1);",
+                  "d.setHours(10, 0, 0, 0);",
+                  "pm.collectionVariables.set('slotStart', d.toISOString());",
+                  "const end = new Date(d.getTime() + 3600000);",
+                  "pm.collectionVariables.set('slotEnd', end.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('timeslots array', () => pm.expect(res.timeslots).to.be.an('array'));",
+                  "if (res.timeslots && res.timeslots.length > 0) {",
+                  "    pm.collectionVariables.set('slotId', res.timeslots[0].slotId);",
+                  "    console.log('slotId saved:', res.timeslots[0].slotId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startTime\": \"{{slotStart}}\",\n  \"endTime\": \"{{slotEnd}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mentors/{{mentorId}}/timeslots",
+              "host": ["{{baseUrl}}"],
+              "path": ["mentors", "{{mentorId}}", "timeslots"]
+            },
+            "description": "Create a time slot for the mentor. The pre-request script auto-fills tomorrow 10:00–11:00. Saves slotId."
+          },
+          "response": []
+        },
+        {
+          "_postman_id": "11000003-0000-0000-0000-000000000002",
+          "name": "Create Multiple Time Slots",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slots\": [\n    { \"startTime\": \"{{slotStart}}\", \"endTime\": \"{{slotEnd}}\" },\n    { \"startTime\": \"2099-01-15T14:00:00.000Z\", \"endTime\": \"2099-01-15T15:00:00.000Z\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mentors/{{mentorId}}/timeslots",
+              "host": ["{{baseUrl}}"],
+              "path": ["mentors", "{{mentorId}}", "timeslots"]
+            },
+            "description": "Create several time slots in one request using the slots[] array."
+          },
+          "response": []
+        },
+        {
+          "_postman_id": "11000003-0000-0000-0000-000000000003",
+          "name": "List Available Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mentors/{{mentorId}}/timeslots",
+              "host": ["{{baseUrl}}"],
+              "path": ["mentors", "{{mentorId}}", "timeslots"]
+            },
+            "description": "List upcoming available time slots for the mentor."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "_postman_id": "11000004-0000-0000-0000-000000000001",
+          "name": "Create Booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('booking in response', () => pm.expect(res.booking).to.be.an('object'));",
+                  "if (res.booking) {",
+                  "    pm.collectionVariables.set('bookingId', res.booking.bookingId);",
+                  "    console.log('bookingId saved:', res.booking.bookingId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mentorId\": \"{{mentorId}}\",\n  \"slotId\": \"{{slotId}}\",\n  \"studentId\": \"{{studentId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "Book a session. Requires studentId, mentorId, and slotId to be set in collection variables. Saves bookingId."
+          },
+          "response": []
+        },
+        {
+          "_postman_id": "11000004-0000-0000-0000-000000000002",
+          "name": "Create Booking — double-book guard (expect 409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('409 Conflict', () => pm.response.to.have.status(409));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mentorId\": \"{{mentorId}}\",\n  \"slotId\": \"{{slotId}}\",\n  \"studentId\": \"{{studentId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "Booking the same slot a second time must return 409 Conflict."
+          },
+          "response": []
+        },
+        {
+          "_postman_id": "11000004-0000-0000-0000-000000000003",
+          "name": "List Mentor Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mentors/{{mentorId}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["mentors", "{{mentorId}}", "bookings"]
+            },
+            "description": "All bookings for the mentor (upcoming + past)."
+          },
+          "response": []
+        },
+        {
+          "_postman_id": "11000004-0000-0000-0000-000000000004",
+          "name": "List Mentor Bookings — upcoming only",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mentors/{{mentorId}}/bookings?when=upcoming",
+              "host": ["{{baseUrl}}"],
+              "path": ["mentors", "{{mentorId}}", "bookings"],
+              "query": [{ "key": "when", "value": "upcoming" }]
+            },
+            "description": "Filter to only sessions in the future."
+          },
+          "response": []
+        },
+        {
+          "_postman_id": "11000004-0000-0000-0000-000000000005",
+          "name": "Cancel Booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('cancelled flag', () => pm.expect(res.cancelled).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-student-id",
+                "value": "{{studentId}}",
+                "description": "Must match the student who created the booking"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{bookingId}}"]
+            },
+            "description": "Cancel a booking. x-student-id must match the booking owner — returns 403 otherwise."
+          },
+          "response": []
+        },
+        {
+          "_postman_id": "11000004-0000-0000-0000-000000000006",
+          "name": "Cancel Booking — wrong student (expect 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('403 Forbidden', () => pm.response.to.have.status(403));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-student-id",
+                "value": "wrong-student-id",
+                "description": "Intentionally wrong — should return 403"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{bookingId}}"]
+            },
+            "description": "Cancelling another student's booking must return 403 Forbidden."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin ⚠ needs S3",
+      "description": "These endpoints require S3 which is not emulated locally.\nThey will return an error — included here for completeness and AWS testing.",
+      "item": [
+        {
+          "_postman_id": "11000005-0000-0000-0000-000000000001",
+          "name": "Import Mentors (CSV)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "text/csv" }],
+            "body": {
+              "mode": "raw",
+              "raw": "name,email,skills,experience\nBob Jones,bob@example.com,aws;typescript,5\nCarol White,carol@example.com,node;docker,3"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/import/mentors",
+              "host": ["{{baseUrl}}"],
+              "path": ["import", "mentors"]
+            },
+            "description": "Upload a mentor CSV. The raw body is text/csv.\nColumns: name, email, skills (semicolon-separated), experience (years).\n\n⚠ Requires S3 — will fail locally."
+          },
+          "response": []
+        },
+        {
+          "_postman_id": "11000005-0000-0000-0000-000000000002",
+          "name": "Export Bookings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-admin-id",
+                "value": "admin@example.com",
+                "description": "Admin identifier for the notification email"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/exports/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["exports", "bookings"]
+            },
+            "description": "Trigger an async bookings CSV export. Returns 202 immediately; the export Lambda runs in the background and emails a download link.\n\n⚠ Requires S3 — will fail locally."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

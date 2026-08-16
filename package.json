@@ -18,7 +18,12 @@
     "test": "jest",
     "cdk": "cdk",
     "prettier": "npx prettier --write .",
-    "prettier-check": "npx prettier . --check"
+    "prettier-check": "npx prettier . --check",
+    "local:up": "docker compose up -d",
+    "local:down": "docker compose down",
+    "local:setup": "tsx --env-file=local/.env local/setup.ts",
+    "local:seed": "tsx --env-file=local/.env local/seed.ts",
+    "local:dev": "tsx --env-file=local/.env local/server.ts"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.261.0",

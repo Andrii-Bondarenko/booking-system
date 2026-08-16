@@ -21,10 +21,7 @@ export async function createTimeSlots(event: APIGatewayProxyEvent): Promise<APIG
   const body = parseJson<{ startTime?: string; endTime?: string; slots?: SlotInput[] }>(event);
 
   const inputs: SlotInput[] =
-    body.slots ??
-    (body.startTime && body.endTime
-      ? [{ startTime: body.startTime, endTime: body.endTime }]
-      : []);
+    body.slots ?? (body.startTime && body.endTime ? [{ startTime: body.startTime, endTime: body.endTime }] : []);
 
   const timeslots = await timeslotService.create(mentorId, inputs);
   return created({ timeslots });

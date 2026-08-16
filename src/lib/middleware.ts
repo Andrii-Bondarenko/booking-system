@@ -26,8 +26,6 @@ export const withErrorHandling: Middleware = (next) => async (event) => {
 export const withLogging: Middleware = (next) => async (event) => {
   const start = Date.now();
   const result = await next(event);
-  console.log(
-    `${event.httpMethod} ${event.resource} → ${result.statusCode} (${Date.now() - start}ms)`,
-  );
+  console.log(`${event.httpMethod} ${event.resource} → ${result.statusCode} (${Date.now() - start}ms)`);
   return result;
 };

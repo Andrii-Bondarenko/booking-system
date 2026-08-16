@@ -70,8 +70,7 @@ export class Router {
 
   readonly dispatch: Handler = (event) => {
     const key = `${event.httpMethod} ${event.resource}`;
-    const routeHandler = this.routes.get(key)
-      ?? (() => Promise.resolve(json(404, { message: `No route for ${key}` })));
+    const routeHandler = this.routes.get(key) ?? (() => Promise.resolve(json(404, { message: `No route for ${key}` })));
     return compose(...this.middlewares)(routeHandler)(event);
   };
 }

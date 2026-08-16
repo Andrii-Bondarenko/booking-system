@@ -10,7 +10,9 @@ import type { BookingsExportJob, NotificationEvent } from './events';
  * The client is created once at module scope so warm Lambda invocations
  * reuse it.
  */
-const sqs = new SQSClient({});
+const sqs = new SQSClient({
+  ...(process.env.SQS_ENDPOINT ? { endpoint: process.env.SQS_ENDPOINT } : {}),
+});
 
 export async function publishNotification(event: NotificationEvent): Promise<void> {
   await sqs.send(

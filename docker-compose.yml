@@ -1,0 +1,13 @@
+services:
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    ports:
+      - '8000:8000'
+    # -sharedDb: one file for all regions/credentials (simpler locally)
+    # -inMemory: no disk writes, resets on restart
+    command: ['-jar', 'DynamoDBLocal.jar', '-sharedDb', '-inMemory']
+
+  sqs:
+    image: softwaremill/elasticmq-native:latest
+    ports:
+      - '9324:9324' # SQS API

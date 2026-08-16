@@ -18,8 +18,7 @@ export interface ComputeConstructProps {
 }
 
 /** Resolve a handler entry file relative to the project root. */
-const handlerEntry = (file: string): string =>
-  path.join(__dirname, '..', '..', 'src', 'handlers', file);
+const handlerEntry = (file: string): string => path.join(__dirname, '..', '..', 'src', 'handlers', file);
 
 /** Defaults shared by all our Lambdas. */
 const commonFnProps = {
@@ -97,11 +96,9 @@ export class ComputeConstruct extends Construct {
     storage.importsBucket.grantRead(csvProcessorFn);
     data.mentorsTable.grantWriteData(csvProcessorFn);
     messaging.notificationsQueue.grantSendMessages(csvProcessorFn);
-    storage.importsBucket.addEventNotification(
-      EventType.OBJECT_CREATED,
-      new LambdaDestination(csvProcessorFn),
-      { prefix: 'mentors-import/' },
-    );
+    storage.importsBucket.addEventNotification(EventType.OBJECT_CREATED, new LambdaDestination(csvProcessorFn), {
+      prefix: 'mentors-import/',
+    });
 
     // ---- Bookings Export (SQS -> DynamoDB -> S3) -------------------
     const exportFn = new NodejsFunction(this, 'ExportFn', {

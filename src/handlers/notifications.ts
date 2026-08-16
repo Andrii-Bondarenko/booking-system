@@ -24,9 +24,7 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
       const message = JSON.parse(record.body) as NotificationEvent;
       const { subject, body } = renderEmail(message);
 
-      await sns.send(
-        new PublishCommand({ TopicArn: TOPIC_ARN, Subject: subject, Message: body }),
-      );
+      await sns.send(new PublishCommand({ TopicArn: TOPIC_ARN, Subject: subject, Message: body }));
     } catch (err) {
       // Log and mark THIS message for retry; keep processing the rest.
       console.error(`Failed to process message ${record.messageId}`, err);
@@ -54,8 +52,7 @@ function renderEmail(event: NotificationEvent): { subject: string; body: string 
       return {
         subject: 'Mentor import complete',
         body:
-          `Import finished. Processed ${event.processed}, ` +
-          `succeeded ${event.succeeded}, failed ${event.failed}.`,
+          `Import finished. Processed ${event.processed}, ` + `succeeded ${event.succeeded}, failed ${event.failed}.`,
       };
     case 'bookings.exported':
       return {

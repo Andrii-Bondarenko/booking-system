@@ -1,10 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { badRequest, created, ok, parseJson, requireStudentId } from '../lib/http';
-import {
-  bookingService,
-  type BookingWhen,
-  type CreateBookingInput,
-} from './booking.service';
+import { bookingService, type BookingWhen, type CreateBookingInput } from './booking.service';
 
 /** Read the optional ?when=upcoming|past filter (defaults to all). */
 function whenOf(event: APIGatewayProxyEvent): BookingWhen {
@@ -33,9 +29,7 @@ export async function cancelBooking(event: APIGatewayProxyEvent): Promise<APIGat
 }
 
 /** GET /mentors/{mentorId}/bookings — a mentor's booked sessions. */
-export async function listMentorBookings(
-  event: APIGatewayProxyEvent,
-): Promise<APIGatewayProxyResult> {
+export async function listMentorBookings(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const mentorId = event.pathParameters?.mentorId;
   if (!mentorId) throw badRequest('mentorId path parameter is required');
 
