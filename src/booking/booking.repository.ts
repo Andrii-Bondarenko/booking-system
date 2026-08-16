@@ -21,21 +21,13 @@ export const bookingRepository = {
     return item as unknown as Booking | undefined;
   },
 
-  async put(booking: Booking): Promise<void> {
-    await new BookingModel(booking).save();
-  },
-
-  async delete(bookingId: string): Promise<void> {
-    await BookingModel.delete(bookingId);
-  },
-
   /** Transaction item: atomically inserts a new booking record. */
-  putTx(booking: Booking) {
+  put(booking: Booking) {
     return BookingModel.transaction.create(booking);
   },
 
   /** Transaction item: atomically deletes a booking record. */
-  deleteTx(bookingId: string) {
+  delete(bookingId: string) {
     return BookingModel.transaction.delete(bookingId);
   },
 
@@ -59,9 +51,18 @@ export const bookingRepository = {
     return items as unknown as Booking[];
   },
 
-  /** Every booking in the table (used by the export job). Scans + paginates. */
-  async listAll(): Promise<Booking[]> {
-    const items = await BookingModel.scan().all().exec();
-    return items as unknown as Booking[];
+  /**
+   * Async generator that yields one DynamoDB page of bookings at a time.
+   * Used by the export job so the entire table is never held in memory.
+   */
+  async *scanPages(): AsyncGenerator<Booking[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let scan: any = BookingModel.scan();
+    while (true) {
+      const page = await scan.exec();
+      if (page.length > 0) yield page as unknown as Booking[];
+      if (!(page as any).lastKey) break;
+      scan = BookingModel.scan().startAt((page as any).lastKey);
+    }
   },
 };

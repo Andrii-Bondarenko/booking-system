@@ -104,7 +104,6 @@ export class ComputeConstruct extends Construct {
     const exportFn = new NodejsFunction(this, 'ExportFn', {
       ...commonFnProps,
       entry: handlerEntry('export.ts'),
-      memorySize: 512, // building a big CSV in memory wants more room
       timeout: Duration.seconds(120), // must stay below the queue's 300s
       environment: {
         BOOKINGS_TABLE: data.bookingsTable.tableName,

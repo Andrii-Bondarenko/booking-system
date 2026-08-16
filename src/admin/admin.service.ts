@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { badRequest } from '../lib/http';
 import { config } from '../lib/config';
-import { putObject } from '../lib/storage';
+import { putObjectStream } from '../lib/storage';
 import { publishExportJob } from '../lib/messaging';
 import { nowIso } from '../lib/time';
 
@@ -22,7 +23,9 @@ export const adminService = {
     // The mentors-import/ prefix is what the S3 event notification filters
     // on, so uploading here is what triggers processing.
     const key = `mentors-import/${Date.now()}-${randomUUID()}/mentors.csv`;
-    await putObject(config.importsBucket, key, csv, 'text/csv');
+    // API Gateway delivers the body as a string — wrap it in a stream so the
+    // storage layer stays consistently stream-only.
+    await putObjectStream(config.importsBucket, key, Readable.from([csv]), 'text/csv');
 
     return { bucket: config.importsBucket, key };
   },

@@ -1,19 +1,18 @@
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { Readable } from 'node:stream';
 
-/**
- * S3 access helpers. Like the DynamoDB client, the S3 client is created
- * once at module scope so warm Lambda invocations reuse it.
- */
 const s3 = new S3Client({
   ...(process.env.S3_ENDPOINT ? { endpoint: process.env.S3_ENDPOINT } : {}),
 });
 
-export async function putObject(bucket: string, key: string, body: string, contentType: string): Promise<void> {
-  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
+/** Return the S3 object body as a Node.js Readable stream. */
+export async function getObjectStream(bucket: string, key: string): Promise<Readable> {
+  const result = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!result.Body) throw new Error(`S3 object ${bucket}/${key} has no body`);
+  return result.Body as Readable;
 }
 
-export async function getObject(bucket: string, key: string): Promise<string> {
-  const result = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-  // The v3 SDK stream exposes a helper to read it all as a string.
-  return result.Body!.transformToString();
+/** Upload a Readable stream to S3 using chunked transfer encoding. */
+export async function putObjectStream(bucket: string, key: string, body: Readable, contentType: string): Promise<void> {
+  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
 }

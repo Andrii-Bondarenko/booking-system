@@ -69,7 +69,7 @@ export const bookingService = {
     // If the slot was booked by a concurrent request the condition fails and
     // DynamoDB cancels the whole transaction (→ TransactionCanceledException).
     try {
-      await dynamoose.transaction([timeslotRepository.claimSlotTx(mentorId, slotId), bookingRepository.putTx(booking)]);
+      await dynamoose.transaction([timeslotRepository.claimSlot(mentorId, slotId), bookingRepository.put(booking)]);
     } catch (err) {
       if (isTransactionCancelled(err)) {
         throw conflict('That time slot was just booked by someone else');
@@ -100,8 +100,8 @@ export const bookingService = {
     }
 
     await dynamoose.transaction([
-      bookingRepository.deleteTx(bookingId),
-      timeslotRepository.releaseSlotTx(booking.mentorId, booking.slotId),
+      bookingRepository.delete(bookingId),
+      timeslotRepository.releaseSlot(booking.mentorId, booking.slotId),
     ]);
 
     await publishNotification({

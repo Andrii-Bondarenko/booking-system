@@ -34,7 +34,7 @@ export const timeslotRepository = {
    * 'available'. Pass the returned promise into dynamoose.transaction([...]).
    * If the condition fails the whole transaction is cancelled (→ 409).
    */
-  claimSlotTx(mentorId: string, slotId: string) {
+  claimSlot(mentorId: string, slotId: string) {
     return TimeSlotModel.transaction.update(
       { mentorId, slotId },
       { status: 'booked' },
@@ -43,7 +43,7 @@ export const timeslotRepository = {
   },
 
   /** Transaction item: releases a slot back to available. */
-  releaseSlotTx(mentorId: string, slotId: string) {
+  releaseSlot(mentorId: string, slotId: string) {
     return TimeSlotModel.transaction.update({ mentorId, slotId }, { status: 'available' });
   },
 };
