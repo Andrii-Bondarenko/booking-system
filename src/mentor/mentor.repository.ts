@@ -12,10 +12,18 @@ export const mentorRepository = {
     return item as unknown as Mentor | undefined;
   },
 
-  async listActive(): Promise<Mentor[]> {
-    // `.all()` makes Dynamoose follow pagination until the whole (filtered)
-    // table has been read. Fine at demo scale; a GSI + Query would scale.
-    const items = await MentorModel.scan('active').eq(true).all().exec();
+  /**
+   * Scan active mentors with optional DB-level filter expressions.
+   * DynamoDB still reads all items (no index on skill/experience), but the
+   * filter expressions reduce network transfer compared to in-memory filtering.
+   * Values are parameterised via ExpressionAttributeValues — no injection risk.
+   */
+  async listActive(skill?: string, minExperience?: number): Promise<Mentor[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let scan: any = MentorModel.scan('active').eq(true);
+    if (skill) scan = scan.filter('skills').contains(skill);
+    if (minExperience !== undefined) scan = scan.filter('experience').ge(minExperience);
+    const items = await scan.all().exec();
     return items as unknown as Mentor[];
   },
 

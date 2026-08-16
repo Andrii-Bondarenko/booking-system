@@ -1,3 +1,4 @@
+import * as dynamoose from 'dynamoose';
 import { randomUUID } from 'node:crypto';
 import { badRequest, conflict, forbidden, notFound } from '../lib/http';
 import { nowIso, overlaps } from '../lib/time';
@@ -51,17 +52,6 @@ export const bookingService = {
       }
     }
 
-    // Atomically claim the slot. If someone booked it a moment ago, the
-    // conditional write fails and we translate that into a 409.
-    try {
-      await timeslotRepository.markBooked(mentorId, slotId);
-    } catch (err) {
-      if (err instanceof Error && err.name === 'ConditionalCheckFailedException') {
-        throw conflict('That time slot was just booked by someone else');
-      }
-      throw err;
-    }
-
     const booking: Booking = {
       bookingId: randomUUID(),
       studentId,
@@ -74,7 +64,18 @@ export const bookingService = {
       status: 'confirmed',
       createdAt: nowIso(),
     };
-    await bookingRepository.put(booking);
+
+    // Atomically claim the slot AND write the booking in one transaction.
+    // If the slot was booked by a concurrent request the condition fails and
+    // DynamoDB cancels the whole transaction (→ TransactionCanceledException).
+    try {
+      await dynamoose.transaction([timeslotRepository.claimSlotTx(mentorId, slotId), bookingRepository.putTx(booking)]);
+    } catch (err) {
+      if (isTransactionCancelled(err)) {
+        throw conflict('That time slot was just booked by someone else');
+      }
+      throw err;
+    }
 
     await publishNotification({
       type: 'booking.created',
@@ -98,8 +99,10 @@ export const bookingService = {
       throw forbidden('You can only cancel your own bookings');
     }
 
-    await bookingRepository.delete(bookingId);
-    await timeslotRepository.markAvailable(booking.mentorId, booking.slotId);
+    await dynamoose.transaction([
+      bookingRepository.deleteTx(bookingId),
+      timeslotRepository.releaseSlotTx(booking.mentorId, booking.slotId),
+    ]);
 
     await publishNotification({
       type: 'booking.cancelled',
@@ -111,17 +114,17 @@ export const bookingService = {
   },
 
   async listForMentor(mentorId: string, when: BookingWhen): Promise<Booking[]> {
-    return filterWhen(await bookingRepository.listForMentor(mentorId), when);
+    const mentor = await mentorRepository.get(mentorId);
+    if (!mentor) throw notFound(`Mentor ${mentorId} not found`);
+
+    const now = nowIso();
+    const timeRange = when === 'upcoming' ? { gt: now } : when === 'past' ? { le: now } : undefined;
+
+    return bookingRepository.listForMentor(mentorId, timeRange);
   },
 };
 
-/** Filter by upcoming/past relative to now, then sort soonest-first. */
-function filterWhen(bookings: Booking[], when: BookingWhen): Booking[] {
-  const now = nowIso();
-  let result = bookings;
-
-  if (when === 'upcoming') result = result.filter((b) => b.startTime > now);
-  else if (when === 'past') result = result.filter((b) => b.startTime <= now);
-
-  return result.sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
+/** True when DynamoDB cancelled a transaction (e.g. a condition check failed). */
+function isTransactionCancelled(err: unknown): boolean {
+  return err instanceof Error && /TransactionCanceled/.test(`${err.name}${err.message}`);
 }

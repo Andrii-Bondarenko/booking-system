@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { badRequest, conflict, notFound } from '../lib/http';
-import { isFutureIso, isValidIso, overlaps } from '../lib/time';
+import { isFutureIso, isValidIso, nowIso, overlaps } from '../lib/time';
 import { mentorRepository } from '../mentor/mentor.repository';
 import { timeslotRepository } from './timeslot.repository';
 import type { TimeSlot } from './timeslot.model';
@@ -30,10 +30,12 @@ function validateSlotTimes(slot: SlotInput): void {
  */
 export const timeslotService = {
   async listAvailable(mentorId: string): Promise<TimeSlot[]> {
-    const slots = await timeslotRepository.listForMentor(mentorId);
-    return slots
-      .filter((s) => s.status === 'available' && isFutureIso(s.startTime))
-      .sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
+    const mentor = await mentorRepository.get(mentorId);
+    if (!mentor) throw notFound(`Mentor ${mentorId} not found`);
+
+    // status and startTime filters applied by DynamoDB — no in-memory filtering needed.
+    const slots = await timeslotRepository.listAvailableForMentor(mentorId, nowIso());
+    return slots.sort((a, b) => (a.startTime < b.startTime ? -1 : 1));
   },
 
   async create(mentorId: string, inputs: SlotInput[]): Promise<TimeSlot[]> {

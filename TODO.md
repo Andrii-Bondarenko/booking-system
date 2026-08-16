@@ -30,17 +30,12 @@ Ordered so each step unblocks the next. Check off as we go.
 - [ ] Booking create/cancel do **two separate writes** — make atomic with `TransactWriteItems`.
 - [ ] Export `downloadUrl` is an `s3://` URI — issue a **presigned HTTPS URL** instead.
 - [ ] No real **auth** — identity comes from `x-student-id`. Add a Cognito/JWT authorizer.
-- [ ] SNS can't send **personalized per-recipient** email — move to SES for real notifications.
 - [ ] `GET /mentors` uses **Scan** — add a GSI + Query if the mentor table grows.
 - [ ] Add CI (type-check + tests + `cdk synth`) and commit the work (currently unstaged).
 
-Add enviroments
-Add enviroments example
-Docker
 Filter via database in query
 ScanAll risk of too big array.
 List mentors available timeslots why via filter not dirrect queryto database
-Prepare Postman collectiom after deploying
 Check if it is ok that we take csv file as string. Full file? Use Stream import csv from 'csv-parser'; pipe()
 Exports also streaming
-seed script
+Check slot id in bookings

@@ -14,16 +14,6 @@ export interface MentorFilters {
  */
 export const mentorService = {
   async list(filters: MentorFilters): Promise<Mentor[]> {
-    let mentors = await mentorRepository.listActive();
-
-    const { skill, minExperience } = filters;
-    if (skill) {
-      mentors = mentors.filter((m) => m.skills?.includes(skill));
-    }
-    if (minExperience !== undefined && !Number.isNaN(minExperience)) {
-      mentors = mentors.filter((m) => m.experience >= minExperience);
-    }
-
-    return mentors;
+    return mentorRepository.listActive(filters.skill, filters.minExperience);
   },
 };

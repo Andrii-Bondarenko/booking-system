@@ -2,14 +2,21 @@ import * as dynamoose from 'dynamoose';
 import { TimeSlotModel } from './timeslot.model';
 import type { TimeSlot } from './timeslot.model';
 
-/**
- * Time-slot data access. The interesting bit is markBooked: its atomic
- * condition (status must still be "available") is what prevents two
- * students double-booking the same slot.
- */
 export const timeslotRepository = {
   async listForMentor(mentorId: string): Promise<TimeSlot[]> {
     const items = await TimeSlotModel.query('mentorId').eq(mentorId).exec();
+    return items as unknown as TimeSlot[];
+  },
+
+  /** Query with DB-level filter expressions — avoids pulling every slot in memory. */
+  async listAvailableForMentor(mentorId: string, after: string): Promise<TimeSlot[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const items = await (TimeSlotModel.query('mentorId').eq(mentorId) as any)
+      .filter('status')
+      .eq('available')
+      .filter('startTime')
+      .gt(after)
+      .exec();
     return items as unknown as TimeSlot[];
   },
 
@@ -23,34 +30,20 @@ export const timeslotRepository = {
   },
 
   /**
-   * Mark booked ONLY if currently available. If two requests race, exactly
-   * one wins; the other's condition fails. We re-throw that failure under
-   * the name the booking service checks (`ConditionalCheckFailedException`)
-   * so the service layer stays storage-agnostic.
+   * Transaction item: marks slot booked, conditioned on status still being
+   * 'available'. Pass the returned promise into dynamoose.transaction([...]).
+   * If the condition fails the whole transaction is cancelled (→ 409).
    */
-  async markBooked(mentorId: string, slotId: string): Promise<void> {
-    try {
-      await TimeSlotModel.update(
-        { mentorId, slotId },
-        { status: 'booked' },
-        { condition: new dynamoose.Condition().where('status').eq('available') },
-      );
-    } catch (err) {
-      if (isConditionalCheckFailure(err)) {
-        const conflictErr = new Error('Time slot is no longer available');
-        conflictErr.name = 'ConditionalCheckFailedException';
-        throw conflictErr;
-      }
-      throw err;
-    }
+  claimSlotTx(mentorId: string, slotId: string) {
+    return TimeSlotModel.transaction.update(
+      { mentorId, slotId },
+      { status: 'booked' },
+      { condition: new dynamoose.Condition().where('status').eq('available') },
+    );
   },
 
-  async markAvailable(mentorId: string, slotId: string): Promise<void> {
-    await TimeSlotModel.update({ mentorId, slotId }, { status: 'available' });
+  /** Transaction item: releases a slot back to available. */
+  releaseSlotTx(mentorId: string, slotId: string) {
+    return TimeSlotModel.transaction.update({ mentorId, slotId }, { status: 'available' });
   },
 };
-
-/** True when an error is DynamoDB's failed-condition error, however wrapped. */
-function isConditionalCheckFailure(err: unknown): boolean {
-  return err instanceof Error && /ConditionalCheckFailed/.test(`${err.name}${err.message}`);
-}
