@@ -256,23 +256,3 @@ npm run prettier                    # format
 
 > **Note:** `cdk synth`/`deploy` bundle the Lambdas with **esbuild**, which strips types
 > _without_ checking them. Always run `tsc --noEmit` to actually validate types.
-
----
-
-## Conventions & deliberate trade-offs (learning notes)
-
-- **Multi-table DynamoDB** (one table per entity) — easier to understand than single-table.
-- **Explicit API Gateway routes** (not a catch-all proxy) — the URL tree is visible in code.
-- **Dynamoose ODM** — repositories use Dynamoose v4 for schema definition, query building, and
-  marshalling. Classic ORMs (Prisma/TypeORM) don't support DynamoDB; Dynamoose is the DynamoDB-
-  native alternative.
-- **Double-booking guard** — `POST /bookings` claims the slot with an atomic conditional write
-  (`markSlotBooked`, `ConditionExpression: status = available`) before writing the booking.
-- **Non-transactional writes** — booking + slot updates are two separate writes; a crash between
-  them could orphan state. Production fix: DynamoDB `TransactWriteItems`.
-- **SNS, not SES** — per the task spec. SNS broadcasts one message to all subscribers, so it
-  can't do true per-recipient personalized email; SES would in production.
-- **Removal policies = DESTROY** everywhere — convenient teardown for a learning project; use
-  `RETAIN` in production.
-
-See `TODO.md` for what's next.
