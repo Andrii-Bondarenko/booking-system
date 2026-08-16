@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { Readable } from 'node:stream';
 import { badRequest } from '../lib/http';
 import { config } from '../lib/config';
-import { putObjectStream } from '../lib/storage';
+import { putObject } from '../lib/storage';
 import { publishExportJob } from '../lib/messaging';
 import { nowIso } from '../lib/time';
 
@@ -25,7 +24,7 @@ export const adminService = {
     const key = `mentors-import/${Date.now()}-${randomUUID()}/mentors.csv`;
     // API Gateway delivers the body as a string — wrap it in a stream so the
     // storage layer stays consistently stream-only.
-    await putObjectStream(config.importsBucket, key, Readable.from([csv]), 'text/csv');
+    await putObject(config.importsBucket, key, Buffer.from(csv, 'utf8'), 'text/csv');
 
     return { bucket: config.importsBucket, key };
   },

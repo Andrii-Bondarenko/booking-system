@@ -113,6 +113,7 @@ export class ComputeConstruct extends Construct {
     });
     data.bookingsTable.grantReadData(exportFn);
     storage.exportsBucket.grantPut(exportFn);
+    storage.exportsBucket.grantRead(exportFn); // needed to sign pre-signed download URLs
     messaging.notificationsQueue.grantSendMessages(exportFn);
     exportFn.addEventSource(
       new SqsEventSource(messaging.exportsQueue, {

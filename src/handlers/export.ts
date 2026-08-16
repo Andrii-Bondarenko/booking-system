@@ -1,6 +1,5 @@
-import { Readable } from 'node:stream';
 import type { SQSBatchItemFailure, SQSBatchResponse, SQSEvent } from 'aws-lambda';
-import { putObjectStream } from '../lib/storage';
+import { getPresignedUrl, putObject } from '../lib/storage';
 import { publishNotification } from '../lib/messaging';
 import { bookingRepository } from '../booking/booking.repository';
 import { config } from '../lib/config';
@@ -24,15 +23,22 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
       const key = `booking-exports/${timestamp}/bookings.csv`;
 
       let recordCount = 0;
-      const csvStream = Readable.from(generateCsv(() => (recordCount++, undefined)));
+      const lines: string[] = [];
+      for await (const line of generateCsv()) {
+        lines.push(line);
+        if (lines.length > 1) recordCount++; // skip header line
+      }
+      const csv = lines.join('');
 
-      await putObjectStream(config.exportsBucket, key, csvStream, 'text/csv');
+      await putObject(config.exportsBucket, key, Buffer.from(csv, 'utf8'), 'text/csv');
+
+      const downloadUrl = await getPresignedUrl(config.exportsBucket, key);
 
       await publishNotification({
         type: 'bookings.exported',
         adminEmail: ADMIN_EMAIL,
         recordCount,
-        downloadUrl: `s3://${config.exportsBucket}/${key}`,
+        downloadUrl,
       });
 
       console.log(`Exported ${recordCount} bookings to ${key}`);
@@ -50,12 +56,11 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
  * page at a time via `scanPages()` so the full table is never in memory.
  * `onRow` is called for each data row (used to count records externally).
  */
-async function* generateCsv(onRow: () => void): AsyncGenerator<string> {
+async function* generateCsv(): AsyncGenerator<string> {
   yield COLUMNS.join(',') + '\n';
   for await (const page of bookingRepository.scanPages()) {
     for (const booking of page) {
       yield COLUMNS.map((col) => String((booking as Booking)[col] ?? '')).join(',') + '\n';
-      onRow();
     }
   }
 }

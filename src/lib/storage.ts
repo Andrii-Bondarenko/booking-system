@@ -1,4 +1,5 @@
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'node:stream';
 
 const s3 = new S3Client({
@@ -12,7 +13,12 @@ export async function getObjectStream(bucket: string, key: string): Promise<Read
   return result.Body as Readable;
 }
 
-/** Upload a Readable stream to S3 using chunked transfer encoding. */
-export async function putObjectStream(bucket: string, key: string, body: Readable, contentType: string): Promise<void> {
+/** Upload data to S3. Pass a Buffer for known-size payloads, Readable for true streams. */
+export async function putObject(bucket: string, key: string, body: Buffer | Readable, contentType: string): Promise<void> {
   await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
+}
+
+/** Return a pre-signed HTTPS URL valid for `expiresIn` seconds (default 1 hour). */
+export async function getPresignedUrl(bucket: string, key: string, expiresIn = 3600): Promise<string> {
+  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn });
 }
